@@ -8,15 +8,15 @@ import (
 
 // defining the struct
 type ConsitentHash struct {
-	ring        map[Uint64]string
-	sorted_keys []uint64
+	ring        map[uint64]string
+	sorted_keys map[uint64]struct{}
 	replicas    int
 }
 
 // get the hash
-func (hash ConsitentHash) getHash(data string) Uint64 {
+func (hash ConsitentHash) getHash(data string) uint64 {
 	// hashing
-	var hashValue = sha256.Sum256([]byte(*data))
+	var hashValue = sha256.Sum256([]byte(data))
 	// return hex.EncodeToString(hashValue[:])
 	num := binary.BigEndian.Uint64(hashValue[:8])
 	return num
@@ -25,8 +25,8 @@ func (hash ConsitentHash) getHash(data string) Uint64 {
 // initializing the class CreateHashRingInitialize
 func CreateHashRingInitialize(replicas int) *ConsitentHash {
 	return &ConsitentHash{
-		ring:        make(map[Uint64]string),
-		sorted_keys: make([]uint64, 0),
+		ring:        make(map[uint64]string),
+		sorted_keys: make(map[uint64]struct{}),
 		replicas:    replicas,
 	}
 }
@@ -35,10 +35,12 @@ func CreateHashRingInitialize(replicas int) *ConsitentHash {
 func (hash *ConsitentHash) addNodes(val *string) {
 	for i := 0; i < hash.replicas; i++ {
 		replicaName := fmt.Sprintf("%s-%d", *val, i)
-		
+
 		replicaKey := hash.getHash(replicaName)
 		hash.ring[replicaKey] = *val
-		hash.sorted_keys = append(hash.sorted_keys, replicaKey)
+		// hash.sorted_keys = append(hash.sorted_keys, replicaKey)
+		hash.sorted_keys[replicaKey] = struct{}{}	// sets keys duplicate
+		fmt.Printf("Replicated Keys: %d\n", replicaKey)
 	}
 }
 
