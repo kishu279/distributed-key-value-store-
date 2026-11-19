@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/shirou/gopsutil/v4/mem"
 )
@@ -150,6 +151,14 @@ func getUserPassword(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+
+	if len(os.Args) < 2 {
+		fmt.Println("Usage: go run main.go :PORT")
+		return
+	}
+
+	PORT := os.Args[1]
+
 	// 1. Create a new request router (ServeMux)
 	mux := http.NewServeMux()
 
@@ -162,8 +171,8 @@ func main() {
 	mux.HandleFunc("/getUserKey", getUserPassword)
 
 	// 3. Start the server on port 8080
-	fmt.Println("Server starting on http://localhost:8080...")
-	err := http.ListenAndServe(":8080", mux)
+	fmt.Printf("Server starting on http://localhost%s\n", PORT)
+	err := http.ListenAndServe(PORT, mux)
 	if err != nil {
 		log.Fatal(err)
 	}
