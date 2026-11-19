@@ -5,14 +5,23 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"log"
 	"maps"
+	"net/http"
+	"net/http/httputil"
+	"net/url"
 	"slices"
+	// "log"
+	// "net/http"
+	// "net/http/httputil"
+	// "net/url"
 )
 
 // defining the struct
 type ConsitentHash struct {
 	ring        map[uint64]string
 	sorted_keys map[uint64]struct{}
+	servers     map[string]string
 	replicas    int
 }
 
@@ -30,8 +39,13 @@ func CreateHashRingInitialize(replicas int) *ConsitentHash {
 	return &ConsitentHash{
 		ring:        make(map[uint64]string),
 		sorted_keys: make(map[uint64]struct{}),
+		servers:     make(map[string]string),
 		replicas:    replicas,
 	}
+}
+
+func (hash ConsitentHash) getIpFromNodeId(nodeId *string) string {
+	return hash.servers[*nodeId]
 }
 
 // functions
@@ -69,40 +83,61 @@ func (hash *ConsitentHash) getNode(key *string) (string, error) {
 	slices.Sort(keys)
 
 	// get the lower bound first keys >= target
-	hashValue := hash.getHash(*key)                    // target
-	idx, found := slices.BinarySearch(keys, hashValue) // searches for the earliest and also returns idx
+	hashValue := hash.getHash(*key)                // target
+	idx, _ := slices.BinarySearch(keys, hashValue) // searches for the earliest and also returns idx
 
-	if idx < len(keys) {
-		lowerBoundKey := keys[idx]
-		fmt.Printf("Exact Match :%v | Lower Bound Key :%d, Value :%s\n", found, lowerBoundKey, hash.sorted_keys[lowerBoundKey])
-		return hash.ring[lowerBoundKey], nil
-	} else {
-		fmt.Printf("No keys >= target found")
-		return "", errors.New("Key not found")
+	if idx == len(keys) {
+		idx = 0
 	}
+
+	loweBoundKey := keys[idx]
+	return hash.ring[loweBoundKey], nil
 }
 
 // Create the Nodes and all things required for making this work
+func (hash *ConsitentHash) ConfiguringHashingServers(servers map[string]string) {
+
+	// put all the servers ip with node id name and calculate the hash ring
+	for key, value := range servers {
+		hash.addNodes(&key)
+		hash.servers[key] = value
+	}
+
+	fmt.Printf("Server Configured\n")
+}
+
+// calculate the each requst hash and get node id
+func (hash ConsitentHash) CalculateRoute(requestId *string) string {
+	nodeId, err := hash.getNode(requestId)
+	if err != nil {
+		fmt.Printf("Error %s\n", err)
+	}
+
+	return hash.getIpFromNodeId(&nodeId)
+}
+
 func main() {
 	consistentHashing := CreateHashRingInitialize(3)
 
-	nodeA := "SouravServer1"
-	nodeB := "SouravServer2"
-	nodeC := "SouravServer3"
-
-	consistentHashing.addNodes(&nodeA)
-	consistentHashing.addNodes(&nodeB)
-	consistentHashing.addNodes(&nodeC)
-
-	newNode := "souravpoddar"
-	nodeId, err := consistentHashing.getNode(&newNode)
-	if err != nil {
-		fmt.Printf("Error %s", err)
+	// configuring the consistent hashing
+	servers := map[string]string{
+		"Node1": "http://localhost:8080",
+		"Node2": "http://localhost:8081",
+		"Node3": "http://localhost:8082",
 	}
 
-	fmt.Printf("Node Id: %s\n", nodeId)
+	consistentHashing.ConfiguringHashingServers(servers) // configuration done
 
-	consistentHashing.printHash()
+	// incomind request
+	requestId := "PoddarKishu279"
+
+	target := consistentHashing.CalculateRoute(&requestId) // target ip address
+	fmt.Printf("Target IP Address: %s\n", target)
+
+	// reverse proxy -> direct the request to target
+	targetIpAddress, _ := url.Parse(target)
+	proxy := httputil.NewSingleHostReverseProxy(targetIpAddress)
+	log.Fatal(http.ListenAndServe(":3000", proxy))
 }
 
 func (hash *ConsitentHash) printHash() {
