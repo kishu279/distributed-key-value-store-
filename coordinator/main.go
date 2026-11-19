@@ -8,8 +8,6 @@ import (
 	"log"
 	"maps"
 	"net/http"
-	"net/http/httputil"
-	"net/url"
 	"slices"
 	// "log"
 	// "net/http"
@@ -116,6 +114,11 @@ func (hash ConsitentHash) CalculateRoute(requestId *string) string {
 	return hash.getIpFromNodeId(&nodeId)
 }
 
+func (hash *ConsitentHash) redirectHandler(w http.ResponseWriter, r *http.Request) {
+	targetUrl := hash.CalculateRoute(&r.Host)
+	http.Redirect(w, r, targetUrl, http.StatusTemporaryRedirect) // 302 temporary redirect
+}
+
 func main() {
 	consistentHashing := CreateHashRingInitialize(3)
 
@@ -128,16 +131,24 @@ func main() {
 
 	consistentHashing.ConfiguringHashingServers(servers) // configuration done
 
-	// incomind request
-	requestId := "PoddarKishu279"
+	// 	// incomind request
+	// 	requestId := "PoddarKishu279"
+	//
+	// 	target := consistentHashing.CalculateRoute(&requestId) // target ip address
+	// 	fmt.Printf("Target IP Address: %s\n", target)
+	//
+	// 	// reverse proxy -> direct the request to target
+	// 	targetIpAddress, _ := url.Parse(target)
+	// 	proxy := httputil.NewSingleHostReverseProxy(targetIpAddress)
+	// 	log.Fatal(http.ListenAndServe(":3000", proxy))
 
-	target := consistentHashing.CalculateRoute(&requestId) // target ip address
-	fmt.Printf("Target IP Address: %s\n", target)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", consistentHashing.redirectHandler)
 
-	// reverse proxy -> direct the request to target
-	targetIpAddress, _ := url.Parse(target)
-	proxy := httputil.NewSingleHostReverseProxy(targetIpAddress)
-	log.Fatal(http.ListenAndServe(":3000", proxy))
+	log.Println("Listening on :3000...")
+	if err := http.ListenAndServe(":3000", mux); err != nil {
+		log.Fatal(err)
+	}
 }
 
 func (hash *ConsitentHash) printHash() {
