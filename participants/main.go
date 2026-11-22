@@ -20,8 +20,8 @@ func GetCache(key string) int {
 	return Cache[key]
 }
 
-func CheckKeyPresent(key string) bool {
-	if _, ok := Cache[key]; ok {
+func CheckKeyPresent(key *string) bool {
+	if _, ok := Cache[*key]; ok {
 		return true
 	} else {
 		return false
@@ -38,6 +38,7 @@ type UserRequest struct {
 }
 
 func helloHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("requested\n")
 	fmt.Fprint(w, "Welcome to the Go Web Server!")
 }
 
@@ -84,7 +85,7 @@ func createNewKey(w http.ResponseWriter, r *http.Request) {
 	// fmt.Println(user.Password)
 
 	// check user key is alread present
-	if CheckKeyPresent(user.Email) {
+	if CheckKeyPresent(&user.Email) {
 		fmt.Fprintln(w, "Key is already present")
 		return
 	}
@@ -113,7 +114,7 @@ func updateUserKey(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// check user key is alread present
-	if !CheckKeyPresent(user.Email) {
+	if !CheckKeyPresent(&user.Email) {
 		fmt.Fprintln(w, "Key is not present first create")
 		return
 	}
@@ -132,21 +133,26 @@ func getUserPassword(w http.ResponseWriter, r *http.Request) {
 	// Always close the request body when done
 	defer r.Body.Close()
 
-	var user UserRequest
+	// var user UserRequest
 
-	err := json.NewDecoder(r.Body).Decode(&user)
-	if err != nil {
-		http.Error(w, "Invalid JSON", http.StatusBadRequest)
-		return
-	}
+	// err := json.NewDecoder(r.Body).Decode(&user)
+	// if err != nil {
+	// 	http.Error(w, "Invalid JSON", http.StatusBadRequest)
+	// 	return
+	// }
+
+	email := r.URL.Query().Get("EMAIL")
 
 	// check user key is alread present
-	if !CheckKeyPresent(user.Email) {
+	if !CheckKeyPresent(&email) {
 		fmt.Fprintln(w, "Key is not present first create")
 		return
 	}
 
-	var password int = GetCache(user.Email)
+	var password int = GetCache(email)
+
+	fmt.Printf("Password : %d", password)
+
 	fmt.Fprintf(w, "User Password is :%d", password)
 }
 

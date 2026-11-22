@@ -55,7 +55,7 @@ func (hash *ConsitentHash) addNodes(val *string) {
 		hash.ring[replicaKey] = *val
 		// hash.sorted_keys = append(hash.sorted_keys, replicaKey)
 		hash.sorted_keys[replicaKey] = struct{}{} // sets keys duplicate
-		fmt.Printf("Replicated Keys: %d\n", replicaKey)
+		// fmt.Printf("Replicated Keys: %d\n", replicaKey)
 	}
 }
 
@@ -115,8 +115,11 @@ func (hash ConsitentHash) CalculateRoute(requestId *string) string {
 }
 
 func (hash *ConsitentHash) redirectHandler(w http.ResponseWriter, r *http.Request) {
-	targetUrl := hash.CalculateRoute(&r.Host)
+	targetUrl := hash.CalculateRoute(&r.Host) + r.URL.RequestURI()
+	// fmt.Printf("target route: %s\n", r.URL.RequestURI())
+	// fmt.Printf("target url: %s\n", targetUrl)
 	http.Redirect(w, r, targetUrl, http.StatusTemporaryRedirect) // 302 temporary redirect
+	return
 }
 
 func main() {
